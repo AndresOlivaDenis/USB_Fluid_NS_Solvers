@@ -1,0 +1,197 @@
+% ========================================================================
+% Constructing the density field
+% Weigth Functions
+%     A -> Bilinear Interpolation (uses the nearest 4points)
+%     B -> Peskin (1977) (uses the nearest 4points + 12)
+%     C -> Peskin & McQueen(1989) (uses the nearest 4points + 12)
+%     D -> Brackbill and Ruppel (1986) (uses the nearest 4points + 12)
+% ========================================================================
+
+function [MarkF,MarkFdx,MarkFdy]...
+    =ConstructMarkerFunction03_B(MarkF0,MF01,MF02,Nx,Ny,...
+    xu,yu,xv,yv,dx_PE,dy_PN,dx_WP,dy_SP,...
+    NFront,xFront,yFront,xmapFront,ymapFront,Lx)
+
+% Interpolation function -------------------------------------------------
+FIx=@(r) 0.25*(1+cos(pi*r*0.5)); % Peskin (1977) Interpolation 
+FIy=@(r) 0.25*(1+cos(pi*r*0.5)); % Peskin (1977) Interpolation
+% ------------------------------------------------------------------------
+
+% =======================================================================
+% Gradient Distribution -------------------------------------------------
+MarkFdx=zeros(Nx+1,Ny+2); MarkFdy=zeros(Nx+2,Ny+1); 
+Flagx=zeros(Nx+2,Ny+2); Flagy=zeros(Nx+2,Ny+2);
+for il=2:NFront+1
+    % Values in the Front (with Normal Vectors) -------------------------
+    [dx,Ix]=min([abs((xFront(il+1)-xFront(il-1))),...
+        abs((xFront(il+1)-Lx-xFront(il-1))),...
+        abs((xFront(il+1)+Lx-xFront(il-1)))]);
+    signx=sign([(xFront(il+1)-xFront(il-1)),...
+        (xFront(il+1)-Lx-xFront(il-1)),...
+        (xFront(il+1)+Lx-xFront(il-1))]);
+    nfy=0.5*signx(Ix)*dx*(MF01-MF02);
+%     nfy=0.5*(xFront(il+1)-xFront(il-1))*(MF01-MF02);
+    nfx=-0.5*(yFront(il+1)-yFront(il-1))*(MF01-MF02);
+    % -------------------------------------------------------------------
+    
+    % Gradients in the x direction (Located in laterals C.V Faces) ------
+    ixF=floor(xmapFront(il)*Nx+1); ixF=ixF-floor(ixF/(Nx+1))*Nx; 
+    jyF=floor(ymapFront(il)*Ny+1+0.5);
+    dxu=xu(ixF+1,jyF)-xu(ixF,jyF); dyu=yu(ixF,jyF+1)-yu(ixF,jyF);
+    
+    rx1=min([abs(xFront(il)-xu(ixF,jyF)),abs(xFront(il)-xu(ixF,jyF)-Lx),...
+        abs(xFront(il)-xu(ixF,jyF)+Lx)])/dxu;
+    rx2=min([abs(xu(ixF+1,jyF)-xFront(il)),abs(xu(ixF+1,jyF)-xFront(il)-Lx),...
+        abs(xu(ixF+1,jyF)-xFront(il)+Lx)])/dxu;
+    ry1=(yFront(il)-yu(ixF,jyF))/dyu; ry2=(yFront(il)-yu(ixF+1,jyF))/dyu;
+    rx3=min([abs(xFront(il)-xu(ixF,jyF+1)),abs(xFront(il)-xu(ixF,jyF+1)-Lx),...
+        abs(xFront(il)-xu(ixF,jyF+1)+Lx)])/dxu;
+    rx4=min([abs(xu(ixF+1,jyF+1)-xFront(il)),abs(xu(ixF+1,jyF+1)-xFront(il)-Lx),...
+        abs(xu(ixF+1,jyF+1)-xFront(il)+Lx)])/dxu;
+    ry3=(yu(ixF,jyF+1)-yFront(il))/dyu; ry4=(yu(ixF+1,jyF+1)-yFront(il))/dyu;
+    
+    rAx1=rx1; rAy1=ry1+1; rAx2=rx2; rAy2=ry2+1;
+    rAx3=rx1+1; rAy3=ry1; rAx4=rx2+1; rAy4=ry2;
+    rAx5=rx3+1; rAy5=ry3; rAx6=rx4+1; rAy6=ry4;
+    rAx7=rx3; rAy7=ry3+1; rAx8=rx4; rAy8=ry4+1;
+    rAx9=rx1+1; rAy9=ry1+1; rAx10=rx2+1; rAy10=ry2+1;
+    rAx11=rx3+1; rAy11=ry3+1; rAx12=rx4+1; rAy12=ry4+1;
+    
+    MarkFdx(ixF,jyF)=MarkFdx(ixF,jyF)+nfx/(dxu*dyu)*FIx(rx1)*FIy(ry1);
+    MarkFdx(ixF+1,jyF)=MarkFdx(ixF+1,jyF)+nfx/(dxu*dyu)*FIx(rx2)*FIy(ry2);
+    MarkFdx(ixF,jyF+1)=MarkFdx(ixF,jyF+1)+nfx/(dxu*dyu)*FIx(rx3)*FIy(ry3);
+    MarkFdx(ixF+1,jyF+1)=MarkFdx(ixF+1,jyF+1)+nfx/(dxu*dyu)*FIx(rx4)*FIy(ry4);
+    
+    ixFA1=max( ixF-2-floor((ixF-2)/(Nx))*(Nx+1), ixF-1 ); % for ixF-1
+    ixFA2=ixF+2-floor((ixF+2)/(Nx+1))*Nx; % for ixF+2
+    MarkFdx(ixF,jyF-1)=MarkFdx(ixF,jyF-1)+nfx/(dxu*dyu)*FIx(rAx1)*FIy(rAy1);
+    MarkFdx(ixF+1,jyF-1)=MarkFdx(ixF+1,jyF-1)+nfx/(dxu*dyu)*FIx(rAx2)*FIy(rAy2);
+    MarkFdx(ixFA1,jyF)=MarkFdx(ixFA1,jyF)+nfx/(dxu*dyu)*FIx(rAx3)*FIy(rAy3);
+    MarkFdx(ixFA2,jyF)=MarkFdx(ixFA2,jyF)+nfx/(dxu*dyu)*FIx(rAx4)*FIy(rAy4);
+    MarkFdx(ixFA1,jyF+1)=MarkFdx(ixFA1,jyF+1)+nfx/(dxu*dyu)*FIx(rAx5)*FIy(rAy5);
+    MarkFdx(ixFA2,jyF+1)=MarkFdx(ixFA2,jyF+1)+nfx/(dxu*dyu)*FIx(rAx6)*FIy(rAy6);
+    MarkFdx(ixF,jyF+2)=MarkFdx(ixF,jyF+2)+nfx/(dxu*dyu)*FIx(rAx7)*FIy(rAy7);
+    MarkFdx(ixF+1,jyF+2)=MarkFdx(ixF+1,jyF+2)+nfx/(dxu*dyu)*FIx(rAx8)*FIy(rAy8);
+    MarkFdx(ixFA1,jyF-1)=MarkFdx(ixFA1,jyF-1)+nfx/(dxu*dyu)*FIx(rAx9)*FIy(rAy9);
+    MarkFdx(ixFA2,jyF-1)=MarkFdx(ixFA2,jyF-1)+nfx/(dxu*dyu)*FIx(rAx10)*FIy(rAy10);
+    MarkFdx(ixFA1,jyF+2)=MarkFdx(ixFA1,jyF+2)+nfx/(dxu*dyu)*FIx(rAx11)*FIy(rAy11);
+    MarkFdx(ixFA2,jyF+2)=MarkFdx(ixFA2,jyF+2)+nfx/(dxu*dyu)*FIx(rAx12)*FIy(rAy12);
+    % -------------------------------------------------------------------
+    
+    % Flags x -----------------------------------------------------------
+    ixFA3=ixF+3-floor((ixF+3)/(Nx+1))*(Nx); % for ixF+3
+    Flagx(ixF,jyF)=1; Flagx(ixF+1,jyF)=1; Flagx(ixFA2,jyF)=1; 
+    Flagx(ixFA1,jyF)=1; Flagx(ixFA3,jyF)=1;
+    Flagx(ixF,jyF+1)=1; Flagx(ixF+1,jyF+1)=1; Flagx(ixFA2,jyF+1)=1; 
+    Flagx(ixFA1,jyF+1)=1; Flagx(ixFA3,jyF+1)=1;
+    Flagx(ixF,jyF+2)=1; Flagx(ixF+1,jyF+2)=1; Flagx(ixFA2,jyF+2)=1; 
+    Flagx(ixFA1,jyF+2)=1; Flagx(ixFA3,jyF+2)=1;
+    Flagx(ixF,jyF-1)=1; Flagx(ixF+1,jyF-1)=1; Flagx(ixFA2,jyF-1)=1; 
+    Flagx(ixFA1,jyF-1)=1; Flagx(ixFA3,jyF-1)=1;
+    % -------------------------------------------------------------------
+    
+    % Gradients in the y direction (Located in top and bottom C.V Faces)
+    ixF=floor(xmapFront(il)*Nx+1+0.5); jyF=floor(ymapFront(il)*Ny+1);
+    dxv=xv(ixF+1,jyF)-xv(ixF,jyF); dyv=yv(ixF,jyF+1)-yv(ixF,jyF);
+    
+    rx1=(xFront(il)-xv(ixF,jyF))/dxv; ry1=(yFront(il)-yv(ixF,jyF))/dyv;
+    rx2=(xv(ixF+1,jyF)-xFront(il))/dxv; ry2=(yFront(il)-yv(ixF+1,jyF))/dyv;
+    rx3=(xFront(il)-xv(ixF,jyF+1))/dxv; ry3=(yv(ixF,jyF+1)-yFront(il))/dyv;
+    rx4=(xv(ixF+1,jyF+1)-xFront(il))/dxv; ry4=(yv(ixF+1,jyF+1)-yFront(il))/dyv;
+    rAx1=rx1; rAy1=ry1+1; rAx2=rx2; rAy2=ry2+1;
+    rAx3=rx1+1; rAy3=ry1; rAx4=rx2+1; rAy4=ry2;
+    rAx5=rx3+1; rAy5=ry3; rAx6=rx4+1; rAy6=ry4;
+    rAx7=rx3; rAy7=ry3+1; rAx8=rx4; rAy8=ry4+1;
+    rAx9=rx1+1; rAy9=ry1+1; rAx10=rx2+1; rAy10=ry2+1;
+    rAx11=rx3+1; rAy11=ry3+1; rAx12=rx4+1; rAy12=ry4+1;
+    
+    MarkFdy(ixF,jyF)=MarkFdy(ixF,jyF)+nfy/(dxv*dyv)*FIx(rx1)*FIy(ry1);
+    MarkFdy(ixF+1,jyF)=MarkFdy(ixF+1,jyF)+nfy/(dxv*dyv)*FIx(rx2)*FIy(ry2);
+    MarkFdy(ixF,jyF+1)=MarkFdy(ixF,jyF+1)+nfy/(dxv*dyv)*FIx(rx3)*FIy(ry3);
+    MarkFdy(ixF+1,jyF+1)=MarkFdy(ixF+1,jyF+1)+nfy/(dxv*dyv)*FIx(rx4)*FIy(ry4);
+    
+    ixFA1=max( ixF-2-floor((ixF-2)/(Nx+1))*Nx+1, ixF-1 ); % for ixF-1
+    ixFA2=ixF+2-floor((ixF+2)/(Nx+3))*(Nx); % for ixF+2
+    MarkFdy(ixF,jyF-1)=MarkFdy(ixF,jyF-1)+nfy/(dxv*dyv)*FIx(rAx1)*FIy(rAy1);
+    MarkFdy(ixF+1,jyF-1)=MarkFdy(ixF+1,jyF-1)+nfy/(dxv*dyv)*FIx(rAx2)*FIy(rAy2);
+    MarkFdy(ixFA1,jyF)=MarkFdy(ixFA1,jyF)+nfy/(dxv*dyv)*FIx(rAx3)*FIy(rAy3);
+    MarkFdy(ixFA2,jyF)=MarkFdy(ixFA2,jyF)+nfy/(dxv*dyv)*FIx(rAx4)*FIy(rAy4);
+    MarkFdy(ixFA1,jyF+1)=MarkFdy(ixFA1,jyF+1)+nfy/(dxv*dyv)*FIx(rAx5)*FIy(rAy5);
+    MarkFdy(ixFA2,jyF+1)=MarkFdy(ixFA2,jyF+1)+nfy/(dxv*dyv)*FIx(rAx6)*FIy(rAy6);
+    MarkFdy(ixF,jyF+2)=MarkFdy(ixF,jyF+2)+nfy/(dxv*dyv)*FIx(rAx7)*FIy(rAy7);
+    MarkFdy(ixF+1,jyF+2)=MarkFdy(ixF+1,jyF+2)+nfy/(dxv*dyv)*FIx(rAx8)*FIy(rAy8);
+    MarkFdy(ixFA1,jyF-1)=MarkFdy(ixFA1,jyF-1)+nfy/(dxv*dyv)*FIx(rAx9)*FIy(rAy9);
+    MarkFdy(ixFA2,jyF-1)=MarkFdy(ixFA2,jyF-1)+nfy/(dxv*dyv)*FIx(rAx10)*FIy(rAy10);
+    MarkFdy(ixFA1,jyF+2)=MarkFdy(ixFA1,jyF+2)+nfy/(dxv*dyv)*FIx(rAx11)*FIy(rAy11);
+    MarkFdy(ixFA2,jyF+2)=MarkFdy(ixFA2,jyF+2)+nfy/(dxv*dyv)*FIx(rAx12)*FIy(rAy12);
+    
+    % Flags y ------------------------------------------------------------
+    Flagy(ixF,jyF)=1; Flagy(ixF,jyF+1)=1; Flagy(ixF,jyF+2)=1;
+    Flagy(ixF,jyF-1)=1; Flagy(ixF,jyF+3)=1;
+    Flagy(ixF+1,jyF)=1; Flagy(ixF+1,jyF+1)=1; Flagy(ixF+1,jyF+2)=1;
+    Flagy(ixF+1,jyF-1)=1; Flagy(ixF+1,jyF+3)=1;
+    Flagy(ixFA2,jyF)=1; Flagy(ixFA2,jyF+1)=1; Flagy(ixFA2,jyF+2)=1;
+    Flagy(ixFA2,jyF-1)=1; Flagy(ixFA2,jyF+3)=1;
+    Flagy(ixFA1,jyF)=1; Flagy(ixFA1,jyF+1)=1; Flagy(ixFA1,jyF+2)=1;
+    Flagy(ixFA1,jyF-1)=1; Flagy(ixFA1,jyF+3)=1;
+    % -------------------------------------------------------------------
+end
+
+% Periodicidad -----------------------------------------------------------
+MarkFdx(1,:)=MarkFdx(1,:)+MarkFdx(Nx+1,:); MarkFdx(Nx+1,:)=MarkFdx(1,:);
+MarkFdy(1,:)=MarkFdy(Nx+1,:)+MarkFdy(1,:); MarkFdy(Nx+1,:)=MarkFdy(1,:);
+MarkFdy(Nx+2,:)=MarkFdy(Nx+2,:)+MarkFdy(2,:); MarkFdy(2,:)=MarkFdy(Nx+2,:);
+
+Flagx(1,:)=Flagx(Nx+1,:); Flagx(Nx+2,:)=Flagx(2,:);
+Flagy(1,:)=Flagy(Nx+1,:); Flagy(Nx+2,:)=Flagy(2,:);
+% ------------------------------------------------------------------------
+
+% ------------------------------------------------------------------------
+% WeigthSum=FIx(rx1)*FIy(ry1)+FIx(rx2)*FIy(ry2)+FIx(rx3)*FIy(ry3)+FIx(rx4)*FIy(ry4)+...
+%     FIx(rAx1)*FIy(rAy1)+FIx(rAx2)*FIy(rAy2)+FIx(rAx3)*FIy(rAy3)+FIx(rAx4)*FIy(rAy4)+...
+%     FIx(rAx5)*FIy(rAy5)+FIx(rAx6)*FIy(rAy6)+FIx(rAx7)*FIy(rAy7)+FIx(rAx8)*FIy(rAy8)+...
+%     FIx(rAx9)*FIy(rAy9)+FIx(rAx10)*FIy(rAy10)+FIx(rAx11)*FIy(rAy11)+FIx(rAx12)*FIy(rAy12)
+% ------------------------------------------------------------------------
+
+% ========================================================================
+% Construction of Density -----------------------------------------------
+
+% Location of The nearest grid Points -----------------------------------
+% ixmin=min(floor(xmapFront*Nx+1+0.5))-3;  jymin=min(floor(ymapFront*Ny+1+0.5))-3;
+% ixmax=max(floor(xmapFront*Nx+1+0.5)+1)+3; jymax=max(floor(ymapFront*Ny+1+0.5)+1)+3;
+
+ixmin=2;  jymin=2; ixmax=Nx+1; jymax=Ny+1;
+
+%  Iteration for the Marker Function ------------------------------------
+Tol=1e-6; Error=1; nitera=0; nmax=500; % ome=1.0;
+MarkF=round(MarkF0); 
+% MarkF(ixmin-4,:)=0; MarkF(ixmax+4,:)=0; MarkF(:,jymin-4)=0; MarkF(:,jymax+4)=0;
+while (Error>=Tol)&&(nitera<=nmax)
+    roLast=MarkF; nitera=nitera+1;
+    for i=ixmin:ixmax
+        for j=jymin:jymax
+            MarkF(i,j)=max(Flagx(i,j),Flagy(i,j))*...
+                (0.25*(MarkF(i+1,j)+MarkF(i-1,j)+MarkF(i,j+1)+MarkF(i,j-1)+...
+                dx_WP(i,j)*MarkFdx(i-1,j)+dy_SP(i,j)*MarkFdy(i,j-1)+...
+                -dx_PE(i,j)*MarkFdx(i,j)-dy_PN(i,j)*MarkFdy(i,j)))+...
+                (1-max(Flagx(i,j),Flagy(i,j)))*MarkF(i,j);
+        end
+    end
+    Error=max(max(abs((MarkF-roLast)./MarkF)));
+end
+% ------------------------------------------------------------------------
+
+% Periodicidad -----------------------------------------------------------
+MarkF(1,:)=MarkF(Nx+1,:); MarkF(Nx+2,:)=MarkF(2,:);
+% ------------------------------------------------------------------------
+
+
+% disp('Construccion de la densidad')
+info=strcat('#It. en la construccion de la MarkerF = ',num2str(nitera),'_ Error = ',num2str(Error));
+disp(info)
+% ========================================================================
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% figure; surf(xP,yP,ro); figure; surf(xP,yP,ro0);
