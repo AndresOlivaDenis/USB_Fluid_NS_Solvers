@@ -1,4 +1,4 @@
-# USB_Fluid_NS_Solvers
+# TwoPhaseNSSolvers
 SOLUCIÓN NUMÉRICA DE LAS ECUACIONES DE NAVIER-STOKES USANDO MÉTODOS TIPO FRONT TRACKING
 
 Modelo numérico para la descripción de fluidos bifásicos con presencia de interfaces. 
